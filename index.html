@@ -54,7 +54,8 @@
                 const data = JSON.parse(rawData);
                 resultEl.textContent = 'Requesting JWT...';
 
-                const response = await fetch('/auth/token', {
+                // NOTE: Using the new port 9088 for the API calls
+                const response = await fetch('http://localhost:9088/auth/token', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -83,7 +84,8 @@
             resultEl.textContent = 'Testing /data/test endpoint...';
 
             try {
-                const response = await fetch('/data/test', {
+                // NOTE: Using the new port 9088 for the API calls
+                const response = await fetch('http://localhost:9088/data/test', {
                     headers: {
                         'Authorization': `Bearer ${jwtToken}`
                     }

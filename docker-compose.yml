@@ -7,7 +7,7 @@ services:
     environment:
       - APISIX_STAND_ALONE=true
     ports:
-      - "9080:9080"
+      - "9088:9080"
     depends_on:
       - opa
 
@@ -30,7 +30,6 @@ services:
     container_name: mock-data
     image: nginx:1.27
     volumes:
-      # MOUNT CHANGE: Mapping data.json instead of index.html
       - ./mock-data/data.json:/usr/share/nginx/html/data.json:ro
     ports:
       - "8080:80"
