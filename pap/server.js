@@ -94,8 +94,21 @@ app.post('/auth/token', (req, res) => {
 });
 
 
-// 3. Data Access Endpoint (UPDATED to use JWT)
-app.get('/data/test', async (req, res) => {
+// 3. Dynamic Data Access Endpoint
+const resourceNameToFile = {
+  'airquality': 'airquality_data_kennedylaan.json',
+  'soundlevel': 'soundlevel_data_kennedylaan.json',
+  'traffic': 'traffic_data_kennedylaan.json'
+};
+
+app.get('/data/:resourceName', async (req, res) => {
+    const { resourceName } = req.params;
+    const fileName = resourceNameToFile[resourceName];
+
+    if (!fileName) {
+      return res.status(404).json({ error: "The requested data resource does not exist." });
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: "Unauthorized: Missing or invalid token" });
@@ -111,7 +124,7 @@ app.get('/data/test', async (req, res) => {
 
     const input = {
         method: "GET",
-        path: "/data/test",
+        path: req.path, // Use the actual request path for the policy check
         attributes: {
             role: decoded.role,
             gemeente: decoded.gemeente
@@ -123,8 +136,8 @@ app.get('/data/test', async (req, res) => {
     const opaResp = await axios.post('http://opa:8181/v1/data/httpauthz/decision', { input });
     
     if (opaResp.data.result === true) {
-      // Step B: Access Granted - Fetch JSON Data
-      const mockResp = await axios.get('http://mock-data/data.json');
+      // Step B: Access Granted - Fetch the correct JSON Data
+      const mockResp = await axios.get(`http://mock-data/${fileName}`);
       
       // Step C: Return clean JSON
       res.json(mockResp.data);

@@ -47,7 +47,14 @@
     <!-- Step 2: Test Endpoint -->
     <div class="step">
         <h2>Step 2: Test Protected Endpoint</h2>
-        <button id="testEndpointBtn" disabled>Test /data/test</button>
+        <div class="step-header">
+            <select id="resourceSelect">
+                <option value="airquality">Air Quality Data</option>
+                <option value="soundlevel">Sound Level Data</option>
+                <option value="traffic">Traffic Data</option>
+            </select>
+            <button id="testEndpointBtn" disabled>Test Selected Endpoint</button>
+        </div>
     </div>
 
     <!-- Step 3: Backend Log -->
@@ -67,6 +74,7 @@
     const getJwtBtn = document.getElementById('getJwtBtn');
     const testEndpointBtn = document.getElementById('testEndpointBtn');
     const userProfileEl = document.getElementById('userProfile');
+    const resourceSelectEl = document.getElementById('resourceSelect');
     const jwtDisplayEl = document.getElementById('jwtDisplay');
     const backendLogEl = document.getElementById('backendLog');
     const resultEl = document.getElementById('result');
@@ -136,18 +144,21 @@
     testEndpointBtn.addEventListener('click', async () => {
         if (!jwtToken) return;
 
+        const resource = resourceSelectEl.value;
+        const testUrl = `${APISIX_GATEWAY}/data/${resource}`;
+
         backendLogEl.innerHTML = ''; // Clear previous test logs
         resultEl.textContent = 'Testing...';
 
-        log(`Request sent to APISIX gateway at ${APISIX_GATEWAY}/data/test`, 'status-send');
+        log(`Request sent to APISIX gateway at ${testUrl}`, 'status-send');
         await sleep(300);
         log('APISIX [jwt-auth]: Validating token...', 'status-eval');
         await sleep(300);
-        log('APISIX [opa]: Sending attributes to OPA for decision...', 'status-eval');
+        log('PAP Service: Querying OPA for decision...', 'status-eval');
         await sleep(400);
 
         try {
-            const response = await fetch(`${APISIX_GATEWAY}/data/test`, {
+            const response = await fetch(testUrl, {
                 headers: { 'Authorization': `Bearer ${jwtToken}` }
             });
 
@@ -156,14 +167,14 @@
             if (response.ok) {
                 log('OPA: Evaluation result: ALLOW', 'status-success');
                 await sleep(200);
-                log('APISIX: Forwarding request to upstream mock-data service...', 'status-info');
+                log('PAP Service: Proxying request to upstream mock-data service...', 'status-info');
                 await sleep(200);
                 log('Final response received.', 'status-success');
                 resultEl.textContent = JSON.stringify(res, null, 2);
             } else {
                 log('OPA: Evaluation result: DENY', 'status-fail');
                 await sleep(200);
-                log('APISIX: Returning 403 Forbidden to client.', 'status-fail');
+                log('PAP Service: Returning 403 Forbidden to client.', 'status-fail');
                 log('Final response received.', 'status-fail');
                 resultEl.textContent = JSON.stringify(res, null, 2);
             }

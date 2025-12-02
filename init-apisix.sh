@@ -51,7 +51,7 @@ echo -e "\n[4/5] Creating routes..."
 curl -s "$ADMIN_URL/routes/data-route" -H "X-API-KEY: $API_KEY" -X PUT -d '
 {
     "name": "data-route",
-    "uri": "/data/test",
+    "uris": ["/data/*"],
     "methods": ["GET", "OPTIONS"],
     "upstream_id": "pap-service-upstream",
     "plugins": {
