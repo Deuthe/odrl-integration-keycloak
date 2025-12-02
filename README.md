@@ -70,54 +70,53 @@ Wait for the script to complete. You should see "Initialization complete!" at th
 
 The entire system can now be tested using the interactive web dashboard. The script automatically configured APISIX to serve the dashboard.
 
-**Access the dashboard here:** [http://localhost:9088](http://localhost:9088)
+**Access the dashboard here:** [http://192.168.2.131:9088](http://192.168.2.131:9088)
+*(Note: Use your VM's IP address if you are not running this on localhost)*
 
 ### Test 1: The "Allowed" Scenario
-1.  Make sure the dropdown is set to **"Valid User (role: ICT, gemeente: Eindhoven)"**.
+1.  Make sure the user profile dropdown is set to **"Valid User (role: ICT, gemeente: Eindhoven)"**.
 2.  Click **Get JWT**.
-3.  Click **Test /data/test**.
-4.  **Observe the result:** The "Backend Log" will show the step-by-step flow, and the "Final Result" will show the protected JSON data.
+3.  Select a resource from the data dropdown (e.g., **"Air Quality Data"**).
+4.  Click **Test Selected Endpoint**.
+5.  **Observe the result:** The "Backend Log" will show the step-by-step flow, and the "Final Result" will show the protected JSON data for the selected resource.
 
 ### Test 2: The "Denied" Scenario
-1.  Change the dropdown to **"Invalid User (role: Finance, gemeente: Eindhoven)"**.
+1.  Change the user profile dropdown to **"Invalid User (role: Finance, gemeente: Eindhoven)"**.
 2.  Click **Get JWT**.
-3.  Click **Test /data/test**.
-4.  **Observe the result:** The "Backend Log" will show OPA returning a `DENY` decision, and the "Final Result" will show an "Access Denied" error.
+3.  Select any data resource.
+4.  Click **Test Selected Endpoint**.
+5.  **Observe the result:** The "Backend Log" will show the `pap` service denying the request, and the "Final Result" will show an "Access Denied" error.
 
 ---
 
 ## 👨‍💻 Manual Testing (CLI)
 
-You can also test the entire workflow directly from your command line using `curl`. This is useful for debugging or scripting.
+You can also test the entire workflow directly from your command line using `curl`.
 
 ### 1. Get a JWT
 
 **For a valid user (`role: "ICT"`):**
 ```sh
-curl -s -X POST http://localhost:9088/pap/auth/token \
+curl -s -X POST http://192.168.2.131:9088/pap/auth/token \
 -H "Content-Type: application/json" \
 -d '{"credentials":[{"presentedAttributes":{"role":"ICT","gemeente":"Eindhoven"}}]}'
 ```
 
-**For an invalid user (`role: "Finance"`):**
-```sh
-curl -s -X POST http://localhost:9088/pap/auth/token \
--H "Content-Type: application/json" \
--d '{"credentials":[{"presentedAttributes":{"role":"Finance","gemeente":"Eindhoven"}}]}'
-```
 This will return a JSON object with a token. Copy the token value for the next step.
 
 ### 2. Test the Protected Endpoint
 
-Replace `[PASTE_YOUR_TOKEN_HERE]` with the token you just copied and run the command:
+Replace `[PASTE_YOUR_TOKEN_HERE]` with the token you just copied and run one of the following commands:
 
+**Example for Air Quality data:**
 ```sh
 TOKEN="[PASTE_YOUR_TOKEN_HERE]"
-curl -i http://localhost:9088/data/test -H "Authorization: Bearer $TOKEN"
+curl -i http://192.168.2.131:9088/data/airquality -H "Authorization: Bearer $TOKEN"
 ```
 
-- With the **valid** token, you should receive an `HTTP/1.1 200 OK` response with the protected `data.json` in the body.
-- With the **invalid** token, you should receive an `HTTP/1.1 403 Forbidden` response with an "Access Denied" message.
+- With a **valid** token, you should receive an `HTTP/1.1 200 OK` response with the protected data in the body.
+- With an **invalid** token, you should receive an `HTTP/1.1 403 Forbidden` response.
+
 
 ---
 
