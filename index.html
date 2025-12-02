@@ -30,13 +30,25 @@
 <div class="container">
     <h1>ODRL Backend Visualizer</h1>
 
-    <!-- Step 1: Generate JWT -->
+    <!-- Step 1: Generate Custom JWT -->
     <div class="step">
-        <h2>Step 1: Generate JWT</h2>
-        <div class="step-header">
-            <select id="userProfile">
-                <option value="valid">Valid User (role: ICT, gemeente: Eindhoven)</option>
-                <option value="invalid">Invalid User (role: Finance, gemeente: Eindhoven)</option>
+        <h2>Step 1: Generate Custom JWT</h2>
+        <div class="step-header" style="gap: 0.5rem; flex-direction: column; align-items: stretch;">
+            <label for="jwtRoleSelect">Role:</label>
+            <select id="jwtRoleSelect">
+                <option value="ICT">ICT</option>
+                <option value="Admin">Admin</option>
+                <option value="Finance">Finance</option>
+                <option value="Researcher">Researcher</option>
+                <option value="Citizen">Citizen</option>
+            </select>
+            <label for="jwtGemeenteSelect">Gemeente:</label>
+            <select id="jwtGemeenteSelect">
+                <option value="Eindhoven">Eindhoven</option>
+                <option value="Amsterdam">Amsterdam</option>
+                <option value="Rotterdam">Rotterdam</option>
+                <option value="Utrecht">Utrecht</option>
+                <option value="Den Haag">Den Haag</option>
             </select>
             <button id="getJwtBtn">Get JWT</button>
         </div>
@@ -57,15 +69,23 @@
         </div>
     </div>
 
-    <!-- Step 3: Backend Log -->
+    <!-- Step 3: Live Policy Editor -->
     <div class="step">
-        <h2>Step 3: Backend Log</h2>
+        <h2>Step 3: Live Policy Editor</h2>
+        <p>Edit the ODRL policy below and click "Update Policy".</p>
+        <textarea id="policyEditor" rows="10" placeholder="ODRL Policy JSON"></textarea>
+        <button id="updatePolicyBtn">Update Policy</button>
+    </div>
+
+    <!-- Step 4: Backend Log -->
+    <div class="step">
+        <h2>Step 4: Backend Log</h2>
         <div id="backendLog" class="output-area"></div>
     </div>
 
-    <!-- Step 4: Final Result -->
+    <!-- Step 5: Final Result -->
     <div class="step">
-        <h2>Step 4: Final Result</h2>
+        <h2>Step 5: Final Result</h2>
         <pre id="result" class="output-area"></pre>
     </div>
 </div>
@@ -73,8 +93,11 @@
 <script>
     const getJwtBtn = document.getElementById('getJwtBtn');
     const testEndpointBtn = document.getElementById('testEndpointBtn');
-    const userProfileEl = document.getElementById('userProfile');
+    const updatePolicyBtn = document.getElementById('updatePolicyBtn'); // New button
+    const jwtRoleSelectEl = document.getElementById('jwtRoleSelect'); // New select
+    const jwtGemeenteSelectEl = document.getElementById('jwtGemeenteSelect'); // New select
     const resourceSelectEl = document.getElementById('resourceSelect');
+    const policyEditorEl = document.getElementById('policyEditor'); // New editor
     const jwtDisplayEl = document.getElementById('jwtDisplay');
     const backendLogEl = document.getElementById('backendLog');
     const resultEl = document.getElementById('result');
@@ -83,15 +106,27 @@
 
     let jwtToken = null;
 
-    const userProfiles = {
-        valid: {
-            "credentials": [{"presentedAttributes": {"role": "ICT", "gemeente": "Eindhoven"}}]
-        },
-        invalid: {
-            "credentials": [{"presentedAttributes": {"role": "Finance", "gemeente": "Eindhoven"}}]
-        }
-    };
+    const currentPolicy = `
+{
+  "@context": "http://www.w3.org/ns/odrl.jsonld",
+  "@type": "Offer",
+  "uid": "eindhoven-ict-2025",
+  "permission": [
+    {
+      "action": "read",
+      "target": "http://datastor/datasets/*",
+      "constraint": [
+        { "leftOperand": "role", "operator": "eq", "rightOperand": "ICT" },
+        { "leftOperand": "gemeente", "operator": "eq", "rightOperand": "Eindhoven" }
+      ]
+    }
+  ]
+}
+`; // Pre-fill with the current policy from policies/eindhoven-ict.json
     
+    // Initialize policy editor
+    policyEditorEl.value = JSON.stringify(JSON.parse(currentPolicy), null, 2);
+
     function clearOutputs() {
         backendLogEl.innerHTML = '';
         resultEl.textContent = '';
@@ -112,10 +147,14 @@
 
     getJwtBtn.addEventListener('click', async () => {
         clearOutputs();
-        const profile = userProfileEl.value;
-        const body = userProfiles[profile];
+        const role = jwtRoleSelectEl.value; // Read from select
+        const gemeente = jwtGemeenteSelectEl.value; // Read from select
 
-        log(`Requesting JWT via APISIX gateway at ${APISIX_GATEWAY}/pap/auth/token`, 'status-send');
+        const body = {
+            "credentials": [{"presentedAttributes": {"role": role, "gemeente": gemeente}}]
+        };
+
+        log(`Requesting JWT for role: "${role}", gemeente: "${gemeente}" via APISIX gateway at ${APISIX_GATEWAY}/pap/auth/token`, 'status-send');
         
         try {
             const response = await fetch(`${APISIX_GATEWAY}/pap/auth/token`, {
@@ -133,6 +172,44 @@
                 testEndpointBtn.disabled = false;
             } else {
                 log(`Error getting JWT: ${res.error || JSON.stringify(res)}`, 'status-fail');
+                resultEl.textContent = JSON.stringify(res, null, 2);
+            }
+        } catch (error) {
+            log(`Network error: ${error.message}`, 'status-fail');
+            resultEl.textContent = `Error: Could not connect to the APISIX gateway at ${APISIX_GATEWAY}. Is it running?`;
+        }
+    });
+
+    // New event listener for updating policy
+    updatePolicyBtn.addEventListener('click', async () => {
+        clearOutputs();
+        const policyJson = policyEditorEl.value;
+        
+        log(`Updating policy via APISIX gateway at ${APISIX_GATEWAY}/pap/policies`, 'status-send');
+
+        try {
+            // Validate JSON before sending
+            let parsedPolicy;
+            try {
+                parsedPolicy = JSON.parse(policyJson);
+            } catch (e) {
+                log(`Invalid JSON in policy editor: ${e.message}`, 'status-fail');
+                resultEl.textContent = `Invalid JSON: ${e.message}`;
+                return;
+            }
+
+            const response = await fetch(`${APISIX_GATEWAY}/pap/policies`, {
+                method: 'POST', // The PAP service expects POST for new policies
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(parsedPolicy)
+            });
+
+            const res = await response.json();
+
+            if (response.ok) {
+                log('Policy updated successfully.', 'status-success');
+            } else {
+                log(`Error updating policy: ${res.error || JSON.stringify(res)}`, 'status-fail');
                 resultEl.textContent = JSON.stringify(res, null, 2);
             }
         } catch (error) {
