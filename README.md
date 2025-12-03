@@ -157,10 +157,28 @@ curl -i http://192.168.2.131:9088/data/airquality -H "Authorization: Bearer $TOK
 - With a **valid** token, you should receive an `HTTP/1.1 200 OK` response with the protected data in the body.
 - With an **invalid** token, you should receive an `HTTP/1.1 403 Forbidden` response.
 
+### Manually Updating ODRL Policies
+
+The Policy Administration Point (PAP) service exposes an endpoint to directly update the ODRL policy that OPA uses for authorization decisions. This can be useful for debugging or integrating with external policy management systems.
+
+To update the policy:
+
+1.  **Prepare your ODRL Policy JSON:** Ensure you have a valid ODRL policy in JSON format. You can use the `policies/eindhoven-ict.json` file as a template or copy the current policy from the "Live Policy Editor" in the web dashboard.
+
+2.  **Send the policy via cURL:** Use the following `curl` command to send your ODRL policy to the PAP service. Remember to adjust the `http://192.168.2.131:9088` address to your actual gateway URL if not running on localhost.
+
+    ```sh
+    curl -s -X POST http://192.168.2.131:9088/pap/policies \
+    -H "Content-Type: application/json" \
+    -d '@your_policy_file.json'
+    ```
+    Replace `your_policy_file.json` with the path to your ODRL policy file.
+
+    Upon success, the PAP service will process the policy and load it into OPA. You can then test the new policy's effect using the dashboard or manual CLI testing.
 
 ---
 
-## Cleanup
+## 🧹 Cleanup
 
 To stop and remove all running containers and networks:
 
