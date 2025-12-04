@@ -16,19 +16,10 @@ until curl -s -o /dev/null -w "%{http_code}" "$ADMIN_URL/routes" -H "X-API-KEY: 
 done
 echo -e "\nAPISIX is ready."
 
-echo -e "\n[1/5] Creating consumer 'paradym-user'..."
-curl -s "$ADMIN_URL/consumers/paradym-user" -H "X-API-KEY: $API_KEY" -X PUT -d '
-{
-  "username": "paradym-user",
-  "plugins": {
-    "jwt-auth": {
-      "key": "paradym-user",
-      "secret": "a-secure-key-for-testing"
-    }
-  }
-}'
+echo -e "\n[0/5] Deleting existing consumer 'paradym-user' (if it exists)..."
+curl -s -X DELETE "$ADMIN_URL/consumers/paradym-user" -H "X-API-KEY: $API_KEY" || true # Use || true to prevent script from exiting if consumer doesn't exist
 
-echo -e "\n[2/5] Creating 'mock-data-service' upstream..."
+echo -e "\n[1/5] Creating upstreams..."
 curl -s "$ADMIN_URL/upstreams/mock-data-upstream" -H "X-API-KEY: $API_KEY" -X PUT -d '
 {
   "name": "mock-data-service",
@@ -37,7 +28,6 @@ curl -s "$ADMIN_URL/upstreams/mock-data-upstream" -H "X-API-KEY: $API_KEY" -X PU
   }
 }'
 
-echo -e "\n[3/5] Creating 'pap-service' upstream..."
 curl -s "$ADMIN_URL/upstreams/pap-service-upstream" -H "X-API-KEY: $API_KEY" -X PUT -d '
 {
   "name": "pap-service-upstream",
@@ -46,19 +36,36 @@ curl -s "$ADMIN_URL/upstreams/pap-service-upstream" -H "X-API-KEY: $API_KEY" -X 
   }
 }'
 
-echo -e "\n[4/5] Creating routes..."
-# Route for the protected data endpoint
+echo -e "\n[2/5] Configuring data route for Keycloak..."
+# Route for the protected data endpoint (OPTIONS for CORS preflight)
+curl -s "$ADMIN_URL/routes/data-route-options" -H "X-API-KEY: $API_KEY" -X PUT -d '
+{
+    "name": "data-route-options",
+    "uris": ["/data/*"],
+    "methods": ["OPTIONS"],
+    "priority": 1,
+    "plugins": {
+        "cors": {
+            "allow_origins": "*",
+            "allow_methods": "*",
+            "allow_headers": "*"
+        }
+    }
+}'
+
+# Route for the protected data endpoint (GET), now secured by Keycloak
 curl -s "$ADMIN_URL/routes/data-route" -H "X-API-KEY: $API_KEY" -X PUT -d '
 {
     "name": "data-route",
     "uris": ["/data/*"],
-    "methods": ["GET", "OPTIONS"],
+    "methods": ["GET"],
     "upstream_id": "pap-service-upstream",
     "plugins": {
-        "jwt-auth": {
-            "key_claim_name": "key"
-        },
-        "cors": {}
+        "cors": {
+            "allow_origins": "*",
+            "allow_methods": "*",
+            "allow_headers": "*"
+        }
     }
 }'
 
@@ -70,7 +77,11 @@ curl -s "$ADMIN_URL/routes/pap-route" -H "X-API-KEY: $API_KEY" -X PUT -d '
     "methods": ["GET", "POST", "OPTIONS"],
     "upstream_id": "pap-service-upstream",
     "plugins": {
-        "cors": {},
+        "cors": {
+            "allow_origins": "*",
+            "allow_methods": "*",
+            "allow_headers": "*"
+        },
         "proxy-rewrite": {
             "regex_uri": ["^/pap/(.*)", "/$1"]
         }

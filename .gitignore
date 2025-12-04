@@ -19,3 +19,6 @@ Thumbs.db
 # Backups
 *.bak
 *.swp
+
+# Keycloak sensitive files (keep only the export)
+keycloak/realm-template.json

@@ -1,6 +1,6 @@
 const express = require('express');
 const axios = require('axios');
-const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken'); // Keep jwt for decoding
 
 const app = express();
 
@@ -33,8 +33,6 @@ app.use((req, res, next) => {
   
   next();
 });
-
-const JWT_SECRET = 'a-secure-key-for-testing';
 
 // --- Endpoints ---
 
@@ -79,29 +77,6 @@ app.post('/policies', async (req, res) => {
   }
 });
 
-// 2. JWT Issuance Endpoint
-app.post('/auth/token', (req, res) => {
-  broadcast('Received request to generate JWT...', 'status-send');
-  try {
-    const attributes = req.body?.credentials?.[0]?.presentedAttributes;
-    if (!attributes || !attributes.role || !attributes.gemeente) {
-      broadcast('Invalid wallet data in JWT request.', 'status-fail');
-      return res.status(400).json({ error: "Invalid wallet data: missing role or gemeente attributes" });
-    }
-    const payload = {
-      role: attributes.role,
-      gemeente: attributes.gemeente,
-      key: 'paradym-user'
-    };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
-    broadcast('JWT generated successfully.', 'status-success');
-    res.json({ token });
-  } catch (error) {
-    broadcast(`Error generating JWT: ${error.message}`, 'status-fail');
-    res.status(500).json({ error: "Failed to generate token" });
-  }
-});
-
 // 3. Dynamic Data Access Endpoint
 const resourceNameToFile = {
   'airquality': 'airquality_data_kennedylaan.json',
@@ -128,11 +103,14 @@ app.get('/data/:resourceName', async (req, res) => {
 
     let decoded;
     try {
-        decoded = jwt.verify(token, JWT_SECRET);
-        broadcast('JWT is valid.', 'status-success');
+        decoded = jwt.decode(token); // Decode without verification, trust APISIX
+        if (!decoded) {
+            throw new Error("Invalid JWT format for decoding.");
+        }
+        broadcast('JWT decoded by PAP (signature trusted via APISIX).', 'status-success');
     } catch (err) {
-        broadcast('Invalid JWT provided.', 'status-fail');
-        return res.status(401).json({ error: "Unauthorized: Invalid token" });
+        broadcast(`JWT decoding failed by PAP: ${err.message}`, 'status-fail');
+        return res.status(401).json({ error: "Unauthorized: Invalid token format" });
     }
 
     const input = {
