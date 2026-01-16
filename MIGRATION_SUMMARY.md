@@ -3,7 +3,7 @@
 ## What Was Accomplished
 
 ### 1. Authentication Migration
-- Migrated from Paradym wallet to Keycloak for JWT issuance
+- Migrated from Paradym wallet to Keycloak for JWT issuance (Previous JWT provided by Paradym was not working 100% correctly)
 - Updated PAP service to decode Keycloak RS256-signed JWTs
 - Verified working token acquisition and validation
 
