@@ -1,6 +1,6 @@
 ## Recent Changes and Enhancements
 
-This section outlines the significant updates and improvements made to the project:
+This section outlines the significant updates and improvements made to the original PoC project: https://github.com/Deuthe/test-odrl-integration
 
 ### Authentication Migration to Keycloak:
 *   **Keycloak Integration:** The system now uses Keycloak as the JWT provider instead of Paradym. Keycloak issues RS256-signed JWT tokens with user roles and municipality claims.
